@@ -47,6 +47,14 @@ class PnpSpec extends FlatSpec with Matchers {
     values(0) should be((3, 2.0))
     values(1) should be((2, 1.0))
   }
+  
+  it should "perform inference on values" in {
+    val foo = Pnp.value(1)
+    
+    val values = foo.beamSearch(2)
+    values.length should be(2)
+    values(0) should be((1, 0.0))
+  }
 
   it should "perform inference on multiple choices" in {
     val foo = for (

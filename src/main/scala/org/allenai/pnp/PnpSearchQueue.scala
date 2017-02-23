@@ -2,6 +2,7 @@ package org.allenai.pnp
 
 import com.jayantkrish.jklol.training.LogFunction
 import com.jayantkrish.jklol.util.KbestQueue
+import scala.collection.mutable.ListBuffer
 
 trait PnpSearchQueue[A] {
   val graph: CompGraph
@@ -20,12 +21,30 @@ class BeamPnpSearchQueue[A](size: Int, val stateCost: ExecutionScore,
       choice: Any, myEnv: Env): Unit = {
     val stateLogProb = stateCost(tag, choice, env) + logProb
     if (stateLogProb > Double.NegativeInfinity) {
-      queue.offer(SearchState(value, env, stateLogProb, tag, choice), logProb)
+      queue.offer(SearchState(value, env, stateLogProb, tag, choice), stateLogProb)
     }
   }
 }
 
-class EnumeratePnpSearchQueue[A] (
+class EnumeratePnpSearchQueue[A](val stateCost: ExecutionScore,
+    val graph: CompGraph, val log: LogFunction) extends PnpSearchQueue[A] {
+
+  val queue = ListBuffer[SearchState[A]]()
+
+  override def offer(value: Pnp[A], env: Env, logProb: Double, tag: Any,
+      choice: Any, myEnv: Env): Unit = {
+    val stateLogProb = stateCost(tag, choice, env) + logProb
+    if (stateLogProb > Double.NegativeInfinity) {
+      queue += SearchState(value, env, stateLogProb, tag, choice)
+    }
+  }
+
+  def clear(): Unit = {
+    queue.clear()
+  }
+}
+
+class ContinuePnpSearchQueue[A] (
     val stateCost: ExecutionScore,
     val graph: CompGraph, val log: LogFunction,
     val finished: PnpSearchQueue[A]
@@ -36,7 +55,7 @@ class EnumeratePnpSearchQueue[A] (
     val stateLogProb = stateCost(tag, choice, env) + logProb
     if (stateLogProb > Double.NegativeInfinity) {
       env.resumeTimers()
-      value.lastSearchStep(env, logProb, this, finished)
+      value.lastSearchStep(env, stateLogProb, this, finished)
       env.pauseTimers()
     }
     myEnv.resumeTimers()

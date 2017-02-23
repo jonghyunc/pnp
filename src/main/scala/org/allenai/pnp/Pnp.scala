@@ -1,14 +1,15 @@
 package org.allenai.pnp
 
-import java.util.Arrays
+import scala.collection.mutable.{ Set => MutableSet }
+import scala.collection.mutable.Stack
 
 import com.google.common.base.Preconditions
 import com.jayantkrish.jklol.training.LogFunction
 import com.jayantkrish.jklol.training.NullLogFunction
+import com.jayantkrish.jklol.util.CountAccumulator
 
 import edu.cmu.dynet._
 import edu.cmu.dynet.dynet_swig._
-import com.jayantkrish.jklol.util.CountAccumulator
 
 
 /** Probabilistic neural program monad. Pnp[X] represents a
@@ -43,7 +44,9 @@ trait Pnp[A] {
   def searchStep[C](env: Env, logProb: Double, continuation: PnpContinuation[A,C],
     queue: PnpSearchQueue[C], finished: PnpSearchQueue[C]): Unit = {
     val v = step(env, logProb, queue.graph, queue.log)
-    continuation.searchStep(v._1, v._2, v._3, queue, finished)
+
+    queue.offer(BindPnp(ValuePnp(v._1), continuation), v._2, v._3, null, null, v._2)
+    // continuation.searchStep(v._1, v._2, v._3, queue, finished)
   }
 
   def lastSearchStep(env: Env, logProb: Double, queue: PnpSearchQueue[A],
@@ -54,7 +57,7 @@ trait Pnp[A] {
 
   def step(env: Env, logProb: Double, graph: CompGraph, log: LogFunction): (A, Env, Double)
 
-  // Methods that do not need to be overriden
+  // Methods that do not need to be overridden
 
   def map[B](f: A => B): Pnp[B] = flatMap { a => Pnp.value(f(a)) }
 
@@ -138,6 +141,71 @@ trait Pnp[A] {
   def beamSearchWithFilter(k: Int, env: Env, keepState: Env => Boolean): PnpBeamMarginals[A] = {
     beamSearchWithFilter(k, env, keepState, null, new NullLogFunction())
   }
+  
+  def sumProduct(env: Env, stateCostArg: ExecutionScore, cg: CompGraph,
+      log: LogFunction): Unit = {
+    
+    // Run a depth-first search over the (implicitly defined)
+    // continuation graph to make it explicit in graph.
+    val graph = new SumProductGraph[A]()
+    val searchQueue = Stack[Int]()
+    val visited = MutableSet[Int]()
+    val explored = MutableSet[Int]()
+    val finished = MutableSet[Int]()
+    
+    val startId = graph.addVertex(this, false)
+    searchQueue.push(startId)
+    
+    val resultQueue = new EnumeratePnpSearchQueue[A](stateCostArg, cg, log)
+    val finishedQueue = new EnumeratePnpSearchQueue[A](stateCostArg, cg, log)
+    
+    while (!searchQueue.isEmpty) {
+      val curId = searchQueue.pop()
+      val cur = graph.getVertex(curId)
+
+      println(curId + " " + cur)
+      
+      explored += curId
+            
+      // Run a search step to get the next set of states that
+      // are reachable from this state.
+      resultQueue.clear()
+      finishedQueue.clear()
+      cur.pnp.lastSearchStep(env, 0.0, resultQueue, finishedQueue)
+
+      for ( (q, done) <- List( (resultQueue, false), (finishedQueue, true) )) {  
+        for (next <- q.queue) {
+          val nextId = graph.addVertex(next.value, done)
+
+          if (!done) {
+            println("  " + nextId + " " + next)
+          }
+
+          Preconditions.checkState(!(explored.contains(nextId) && !finished.contains(nextId)),
+              "Sum-product inference requires the continuation graph to be cycle-free".asInstanceOf[AnyRef]);
+
+          graph.addEdge(curId, nextId, next.logProb)
+          
+          if (!done && !visited.contains(nextId)) {
+            visited += nextId
+            searchQueue.push(nextId)
+          }
+        }
+      }
+      
+      finished += curId
+    }
+    
+    println(graph)
+    
+    for (i <- 0 until graph.numVertexes()) {
+      val vertex = graph.getVertex(i)
+      if (vertex.endState) {
+        val score = graph.getScore(i)
+        println("  " + Math.exp(score) + " " + vertex.pnp.asInstanceOf[ValuePnp[A]].value)
+      }
+    }
+  }
 
   def inOneStep(): Pnp[A] = {
     CollapsedSearch(this)
@@ -149,12 +217,25 @@ case class BindPnp[A, C](b: Pnp[C], f: PnpContinuation[C, A]) extends Pnp[A] {
   
   override def searchStep[D](env: Env, logProb: Double, continuation: PnpContinuation[A,D],
     queue: PnpSearchQueue[D], finished: PnpSearchQueue[D]): Unit = {
-    b.searchStep(env, logProb, f.append(continuation), queue, finished)
+    if (b.isInstanceOf[ValuePnp[C]]) {
+      val value = b.asInstanceOf[ValuePnp[C]].value
+      f.append(continuation).searchStep(value, env, logProb, queue, finished)
+    } else {
+      b.searchStep(env, logProb, f.append(continuation), queue, finished)
+    }
+    
+    // b.searchStep(env, logProb, f.append(continuation), queue, finished)
   }
 
   override def lastSearchStep(env: Env, logProb: Double, queue: PnpSearchQueue[A],
       finished: PnpSearchQueue[A]): Unit = {
-    b.searchStep(env, logProb, f, queue, finished)
+    if (b.isInstanceOf[ValuePnp[C]]) {
+      val value = b.asInstanceOf[ValuePnp[C]].value
+      f.searchStep(value, env, logProb, queue, finished)
+    } else {
+      b.searchStep(env, logProb, f, queue, finished)
+    }
+    // b.searchStep(env, logProb, f, queue, finished)
   }
 
   override def step(env: Env, logProb: Double, graph: CompGraph, log: LogFunction): (A, Env, Double) = {
@@ -227,14 +308,14 @@ case class CollapsedSearch[A](dist: Pnp[A]) extends Pnp[A] {
   override def searchStep[B](env: Env, logProb: Double, continuation: PnpContinuation[A, B],
     queue: PnpSearchQueue[B], finished: PnpSearchQueue[B]) = {
     val wrappedQueue = new ContinuationPnpSearchQueue(queue, continuation)
-    val nextQueue = new EnumeratePnpSearchQueue[A](queue.stateCost, queue.graph, queue.log, wrappedQueue)
+    val nextQueue = new ContinuePnpSearchQueue[A](queue.stateCost, queue.graph, queue.log, wrappedQueue)
     
     dist.lastSearchStep(env, logProb, nextQueue, wrappedQueue)
   }
   
   override def lastSearchStep(env: Env, logProb: Double,
       queue: PnpSearchQueue[A], finished: PnpSearchQueue[A]) = {
-    val nextQueue = new EnumeratePnpSearchQueue[A](queue.stateCost, queue.graph, queue.log, finished)
+    val nextQueue = new ContinuePnpSearchQueue[A](queue.stateCost, queue.graph, queue.log, finished)
     dist.lastSearchStep(env, logProb, nextQueue, finished)
   }
   
