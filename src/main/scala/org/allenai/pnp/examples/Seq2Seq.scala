@@ -14,7 +14,7 @@ import com.google.common.base.Preconditions
 import com.jayantkrish.jklol.util.IndexedList
 
 import edu.cmu.dynet._
-import edu.cmu.dynet.DynetScalaHelpers._
+import edu.cmu.dynet.DyNetScalaHelpers._
 import edu.cmu.dynet.dynet_swig._
 import org.allenai.pnp.PnpExample
 import com.jayantkrish.jklol.training.NullLogFunction
@@ -269,6 +269,7 @@ object Seq2Seq {
     // Train using beam search optimization, similar to LaSO.
     // This optimizes the neural network parameters such that the
     // correct target sequence stays on the beam.
+    model.locallyNormalized = false
     val trainer = new BsoTrainer(50, beamSize, maxBeamSteps, model, sgd, new NullLogFunction())
     
     // Train with maximum likelihood (i.e., the usual way
