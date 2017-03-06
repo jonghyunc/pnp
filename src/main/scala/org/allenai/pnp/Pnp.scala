@@ -473,6 +473,31 @@ case class StopTimerPnp(timerName: String) extends Pnp[Unit] {
   }
 }
 
+case class IndependentPnp[A, B](p: Pnp[A], q: Pnp[B]) extends Pnp[(A, B)] {
+  override def searchStep[C](env: Env, logProb: Double,
+      continuation: PnpContinuation[(A, B), C], queue: PnpSearchQueue[C],
+      finished: PnpSearchQueue[C]) = {
+    // TODO: set these properly
+    val beamSize = 100
+    val maxIters = -1
+    
+    // TODO: the values here need to be cached to enable efficient
+    // CKY chart parsing...
+    val pBeam = p.beamSearch(beamSize, maxIters, env, queue.stateCost, queue.graph, queue.log)
+    val qBeam = q.beamSearch(beamSize, maxIters, env, queue.stateCost, queue.graph, queue.log)
+    
+    for (pEx <- pBeam.executions) {
+      for (qEx <- qBeam.executions) {
+        continuation.searchStep((pEx.value, qEx.value), env, logProb, queue, finished)
+      }
+    }
+  }
+  
+  override def sampleStep[C](env: Env, logProb: Double, continuation: PnpContinuation[(A, B), C],
+      queue: PnpSearchQueue[C], finished: PnpSearchQueue[C]) = {
+  }
+}
+
 class Execution[A](val value: A, val env: Env, val logProb: Double) {
   def prob = Math.exp(logProb)
 
@@ -673,5 +698,9 @@ object Pnp {
 
   def stopTimer(name: String): Pnp[Unit] = {
     StopTimerPnp(name)
+  }
+  
+  def independent[A,B](p: Pnp[A], q: Pnp[B]): Pnp[(A, B)] = {
+    IndependentPnp(p, q)
   }
 }

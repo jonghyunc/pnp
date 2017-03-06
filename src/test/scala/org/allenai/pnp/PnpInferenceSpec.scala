@@ -37,5 +37,4 @@ class PnpInferenceSpec extends FlatSpec with Matchers {
     println("  ")
     baz.sumProduct(Env.init, ExecutionScore.zero, null, logFn)
   }
-
 }
