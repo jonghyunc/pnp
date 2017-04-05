@@ -31,11 +31,11 @@ class LoglikelihoodTrainer(val epochs: Int, val beamSize: Int, val sumMultipleEx
         val conditional = example.conditional.beamSearch(beamSize, -1,
           env, context.addExecutionScore(example.conditionalExecutionScore))
         log.stopTimer("pp_loglikelihood/forward")
-        
+
         log.startTimer("pp_loglikelihood/build_loss")
-        val exLosses = conditional.executions.map(_.env.getScore(true))
-        
-        val lossExpr = if (exLosses.length == 0) {
+        val exLosses = conditional.executions.map(_.env.getScore)
+
+        val logProbExpr = if (exLosses.length == 0) {
           Preconditions.checkState(sumMultipleExecutions,
               "Found %s conditional executions (expected exactly 1) for example: %s",
               conditional.executions.size.asInstanceOf[AnyRef], example)
@@ -45,7 +45,7 @@ class LoglikelihoodTrainer(val epochs: Int, val beamSize: Int, val sumMultipleEx
           exLosses(0)
         } else {
           // This flag is used to ensure that training with a
-          // single label per example doesn't work "by accident" 
+          // single label per example doesn't work "by accident"
           // with an execution score that permits multiple labels.
           Preconditions.checkState(sumMultipleExecutions,
               "Found %s conditional executions (expected exactly 1) for example: %s",
@@ -54,7 +54,8 @@ class LoglikelihoodTrainer(val epochs: Int, val beamSize: Int, val sumMultipleEx
           Expression.logSumExp(new ExpressionVector(exLosses))
         }
         log.stopTimer("pp_loglikelihood/build_loss")
-        
+
+        val lossExpr = -1.0f * logProbExpr
         if (lossExpr != null) {
           log.startTimer("pp_loglikelihood/eval_loss")
           loss += ComputationGraph.incrementalForward(lossExpr).toFloat
