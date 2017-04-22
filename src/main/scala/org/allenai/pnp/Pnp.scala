@@ -47,7 +47,7 @@ trait Pnp[A] {
   def sampleStep[C](env: Env, logProb: Double,
     context: PnpInferenceContext, continuation: PnpContinuation[A,C],
     queue: PnpSearchQueue[C], finished: PnpSearchQueue[C]): Unit
-    
+
   // Methods that do not need to be overriden
 
   def map[B](f: A => B): Pnp[B] = flatMap { a => Pnp.value(f(a)) }
@@ -63,7 +63,7 @@ trait Pnp[A] {
 
     val queue = new BeamPnpSearchQueue[A](beamSize)
     val finished = new BeamPnpSearchQueue[A](beamSize)
-    
+
     val endContinuation = new PnpEndContinuation[A]()
 
     queue.offer(this, env, 0.0, context, null, null)
@@ -82,7 +82,7 @@ trait Pnp[A] {
         val state = beam(i)
         // println(state.value)
         state.value.searchStep(state.env, state.logProb, context, endContinuation, queue, finished)
-        
+
         // state.value.lastSearchStep(state.env, state.logProb, queue, finished)
       }
     }
@@ -103,7 +103,7 @@ trait Pnp[A] {
 
   // Version of beam search for programs that don't have trainable
   // parameters
-  
+
   def beamSearch(k: Int, model: PnpModel): PnpBeamMarginals[A] = {
     ComputationGraph.renew()
     val context = PnpInferenceContext.init(model)
@@ -121,17 +121,17 @@ trait Pnp[A] {
   def inOneStep(): Pnp[A] = {
     CollapsedSearch(this)
   }
-  
+
   def sample(numSamples: Int = 1, env: Env = Env.init, context: PnpInferenceContext = PnpInferenceContext.init): Execution[A] = {
 
     // TODO: make the cost interact with the sampling.
     val queue = new BeamPnpSearchQueue[A](1)
     val finished = new BeamPnpSearchQueue[A](1)
-    
+
     val endContinuation = new PnpEndContinuation[A]()
-    
+
     sampleStep(env, 0.0, context, endContinuation, queue, finished)
-    
+
     val numFinished = finished.queue.size
     val finishedItems = finished.queue.getItems.slice(0, numFinished)
     val finishedScores = finished.queue.getScores.slice(0, numFinished)
@@ -147,12 +147,12 @@ trait Pnp[A] {
 
 case class BindPnp[A, C](b: Pnp[C], f: PnpContinuation[C, A]) extends Pnp[A] {
   override def flatMap[B](g: A => Pnp[B]) = BindPnp(b, f.append(g))
-  
+
   override def searchStep[D](env: Env, logProb: Double, context: PnpInferenceContext,
     continuation: PnpContinuation[A,D], queue: PnpSearchQueue[D], finished: PnpSearchQueue[D]): Unit = {
     b.searchStep(env, logProb, context, f.append(continuation), queue, finished)
   }
-  
+
   override def sampleStep[D](env: Env, logProb: Double, context: PnpInferenceContext,
     continuation: PnpContinuation[A,D], queue: PnpSearchQueue[D], finished: PnpSearchQueue[D]): Unit = {
     b.sampleStep(env, logProb, context, f.append(continuation), queue, finished)
@@ -174,7 +174,7 @@ case class CategoricalPnp[A](dist: Array[(A, Double)], tag: Any) extends Pnp[A] 
       }
     }
   }
-  
+
   override def sampleStep[C](env: Env, logProb: Double, context: PnpInferenceContext, continuation: PnpContinuation[A,C],
     queue: PnpSearchQueue[C], finished: PnpSearchQueue[C]): Unit = {
     // TODO: This code assumes that the distribution is locally normalized.
@@ -186,16 +186,16 @@ case class CategoricalPnp[A](dist: Array[(A, Double)], tag: Any) extends Pnp[A] 
     }
     val totalProb = expDist.map(_._2).sum
     val draw = Math.random() * totalProb
-    
+
     var s = 0.0
-    var choice = -1 
+    var choice = -1
     for (i <- 0 until expDist.length) {
       s += expDist(i)._2
       if (draw <= s && choice == -1) {
         choice = i
       }
     }
-    
+
     val (value, choiceLogProb) = dist(choice)
     // TODO (check me)
     val newLogProb = logProb + choiceLogProb
@@ -205,18 +205,17 @@ case class CategoricalPnp[A](dist: Array[(A, Double)], tag: Any) extends Pnp[A] 
 
 case class ParameterizedCategoricalPnp[A](items: Array[A], parameter: Expression, tag: Any) extends Pnp[A] {
 
-  // XXX: Fix the log softmax thing!
   def getTensor(graph: CompGraph): (Expression, Tensor, Int) = {
     val expr = if (graph.locallyNormalized) {
       Expression.logSoftmax(parameter)
     } else {
       parameter
     }
-    
+
     val paramTensor = ComputationGraph.incrementalForward(expr)
 
     val dims = paramTensor.getD
-    
+
     val size = dims.size.asInstanceOf[Int]
 
     // Print the log (unnormalized) probability associated with each choice.
@@ -225,7 +224,7 @@ case class ParameterizedCategoricalPnp[A](items: Array[A], parameter: Expression
       println(as_vector(paramTensor).get(i))
     }
     */
-    
+
     if (size != items.length) {
       ComputationGraph.printGraphViz()
       println(paramTensor.toVector.size)
@@ -237,7 +236,7 @@ case class ParameterizedCategoricalPnp[A](items: Array[A], parameter: Expression
           items, tag.toString)
     }
 
-    (expr, paramTensor, size) 
+    (expr, paramTensor, size)
   }
 
   override def searchStep[B](env: Env, logProb: Double, context: PnpInferenceContext,
@@ -254,7 +253,7 @@ case class ParameterizedCategoricalPnp[A](items: Array[A], parameter: Expression
       }
     }
   }
-  
+
   override def sampleStep[D](env: Env, logProb: Double, context: PnpInferenceContext,
       continuation: PnpContinuation[A,D], queue: PnpSearchQueue[D],
       finished: PnpSearchQueue[D]): Unit = {
@@ -275,7 +274,7 @@ case class ParameterizedCategoricalPnp[A](items: Array[A], parameter: Expression
       val draw = Math.random() * totalProb
 
       var s = 0.0
-      var choice = -1 
+      var choice = -1
       for (i <- 0 until scores.length) {
         s += scores(i)
         if (draw <= s && choice == -1) {
@@ -299,7 +298,7 @@ case class ScorePnp(score: Double) extends Pnp[Unit] {
     val nextLogProb = logProb + Math.log(score)
     continuation.searchStep((), env, nextLogProb, context, queue, finished)
   }
-  
+
   override def sampleStep[C](env: Env, logProb: Double, context: PnpInferenceContext, continuation: PnpContinuation[Unit,C],
     queue: PnpSearchQueue[C], finished: PnpSearchQueue[C]): Unit = {
     throw new UnsupportedOperationException("Sampling with score functions is not implemented.")
@@ -316,7 +315,7 @@ case class CollapsedSearch[A](dist: Pnp[A]) extends Pnp[A] {
 
     dist.searchStep(env, logProb, context, endContinuation, nextQueue, wrappedQueue)
   }
-  
+
   override def sampleStep[B](env: Env, logProb: Double, context: PnpInferenceContext, continuation: PnpContinuation[A,B],
     queue: PnpSearchQueue[B], finished: PnpSearchQueue[B]): Unit = {
     dist.sampleStep(env, logProb, context, continuation, queue, finished)
@@ -328,7 +327,7 @@ case class ValuePnp[A](value: A) extends Pnp[A] {
     queue: PnpSearchQueue[C], finished: PnpSearchQueue[C]): Unit = {
     continuation.searchStep(value, env, logProb, context, queue, finished)
   }
-  
+
   override def sampleStep[C](env: Env, logProb: Double, context: PnpInferenceContext, continuation: PnpContinuation[A,C],
     queue: PnpSearchQueue[C], finished: PnpSearchQueue[C]): Unit = {
     continuation.sampleStep(value, env, logProb, context, queue, finished)
@@ -340,7 +339,7 @@ case class GetEnv() extends Pnp[Env] {
     queue: PnpSearchQueue[C], finished: PnpSearchQueue[C]): Unit = {
     continuation.searchStep(env, env, logProb, context, queue, finished)
   }
-  
+
   override def sampleStep[C](env: Env, logProb: Double, context: PnpInferenceContext, continuation: PnpContinuation[Env,C],
     queue: PnpSearchQueue[C], finished: PnpSearchQueue[C]): Unit = {
     continuation.sampleStep(env, env, logProb, context, queue, finished)
@@ -352,7 +351,7 @@ case class SetEnv(nextEnv: Env) extends Pnp[Unit] {
     queue: PnpSearchQueue[C], finished: PnpSearchQueue[C]): Unit = {
     continuation.searchStep((), nextEnv, logProb, context, queue, finished)
   }
-  
+
   override def sampleStep[C](env: Env, logProb: Double, context: PnpInferenceContext, continuation: PnpContinuation[Unit,C],
     queue: PnpSearchQueue[C], finished: PnpSearchQueue[C]): Unit = {
     continuation.sampleStep((), nextEnv, logProb, context, queue, finished)
@@ -365,7 +364,7 @@ case class ComputationGraphPnp() extends Pnp[CompGraph] {
     queue: PnpSearchQueue[C], finished: PnpSearchQueue[C]): Unit = {
     continuation.searchStep(context.compGraph, env, logProb, context, queue, finished)
   }
-  
+
   override def sampleStep[C](env: Env, logProb: Double, context: PnpInferenceContext, continuation: PnpContinuation[CompGraph,C],
     queue: PnpSearchQueue[C], finished: PnpSearchQueue[C]): Unit = {
     continuation.sampleStep(context.compGraph, env, logProb, context, queue, finished)
@@ -377,7 +376,7 @@ case class StartTimerPnp(timerName: String) extends Pnp[Unit] {
       queue: PnpSearchQueue[B], finished: PnpSearchQueue[B]) = {
     queue.offer(BindPnp(ValuePnp(()), continuation), env, logProb, context, null, null)
   }
-  
+
   override def sampleStep[B](env: Env, logProb: Double, context: PnpInferenceContext, continuation: PnpContinuation[Unit, B],
       queue: PnpSearchQueue[B], finished: PnpSearchQueue[B]) = {
     // TODO: figure out how timers should work with sampling.
@@ -390,7 +389,7 @@ case class StopTimerPnp(timerName: String) extends Pnp[Unit] {
       continuation: PnpContinuation[Unit, B], queue: PnpSearchQueue[B], finished: PnpSearchQueue[B]) = {
     queue.offer(BindPnp(ValuePnp(()), continuation), env, logProb, context, null, null)
   }
-  
+
   override def sampleStep[B](env: Env, logProb: Double, context: PnpInferenceContext, continuation: PnpContinuation[Unit, B],
       queue: PnpSearchQueue[B], finished: PnpSearchQueue[B]) = {
     // TODO: figure out how timers should work with sampling.
@@ -424,7 +423,7 @@ class PnpBeamMarginals[A](val executions: Seq[Execution[A]], val searchSteps: In
 
   def marginals(): CountAccumulator[A] = {
     val counts = CountAccumulator.create[A]
-    
+
     if (executions.length > 0) {
       val lpf = logPartitionFunction
       for (ex <- executions) {
@@ -458,11 +457,11 @@ object Pnp {
   def choose[A](items: Seq[A], weights: Seq[Double]): Pnp[A] = {
     CategoricalPnp(items.zip(weights).map(x => (x._1, Math.log(x._2))).toArray, null)
   }
-  
+
   def choose[A](items: Seq[A]): Pnp[A] = {
     CategoricalPnp(items.map(x => (x, 0.0)).toArray, null)
   }
-  
+
   def chooseTag[A](items: Seq[A], tag: Any): Pnp[A] = {
     CategoricalPnp(items.map(x => (x, 0.0)).toArray, tag)
   }
@@ -544,7 +543,7 @@ object Pnp {
   }
 
   // Methods for interacting with the computation graph
-  
+
   /** Get the computation graph
     */
   def computationGraph(): Pnp[CompGraph] = { ComputationGraphPnp() }
@@ -581,7 +580,7 @@ object Pnp {
   def score(parameter: Expression): Pnp[Unit] = {
     ParameterizedCategoricalPnp(Array(()), parameter, null)
   }
-  
+
   def score(score: Double): Pnp[Unit] = {
     choose(Seq(()), Seq(score))
   }
