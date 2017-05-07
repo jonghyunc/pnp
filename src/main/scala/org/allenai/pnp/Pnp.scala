@@ -52,6 +52,14 @@ trait Pnp[A] {
 
   def map[B](f: A => B): Pnp[B] = flatMap { a => Pnp.value(f(a)) }
 
+  def filter(f: A => Boolean): Pnp[A] = flatMap { a =>
+    if (f(a)) {
+      Pnp.value(a)
+    } else {
+      Pnp.fail
+    }
+  }
+
   /** Performs a beam search over executions of this program returning
     * at most beamSize execution results. env is the initial global
     * state of the program, and graph is the initial computation graph.
@@ -206,7 +214,7 @@ case class CategoricalPnp[A](dist: Array[(A, Double)], tag: Any) extends Pnp[A] 
 case class ParameterizedCategoricalPnp[A](items: Array[A], parameter: Expression, tag: Any) extends Pnp[A] {
 
   def getTensor(graph: CompGraph): (Expression, Tensor, Int) = {
-    val expr = if (graph.locallyNormalized) {
+    val expr = if (graph.pnpModel.locallyNormalized) {
       Expression.logSoftmax(parameter)
     } else {
       parameter
@@ -246,7 +254,7 @@ case class ParameterizedCategoricalPnp[A](items: Array[A], parameter: Expression
       val (expr, paramTensor, numTensorValues) = getTensor(context.compGraph)
       val v = paramTensor.toVector
       for (i <- 0 until numTensorValues) {
-        val nextEnv = env.addLabel(expr, i)
+        val nextEnv = env.addLabel(expr, i, items(i), tag)
         val nextLogProb = logProb + v(i)
         queue.offer(BindPnp(ValuePnp(items(i)), continuation), nextEnv, nextLogProb, context,
             tag, items(i))
@@ -284,7 +292,7 @@ case class ParameterizedCategoricalPnp[A](items: Array[A], parameter: Expression
 
       val value = items(choice)
       val choiceLogProb = scores(choice)
-      val nextEnv = env.addLabel(expr, choice)
+      val nextEnv = env.addLabel(expr, choice, value, tag)
       ValuePnp(value).sampleStep(nextEnv, logProb + choiceLogProb, context, continuation,
           queue, finished)
     }
@@ -454,8 +462,8 @@ object Pnp {
     CategoricalPnp(dist.map(x => (x._1, Math.log(x._2))).toArray, null)
   }
 
-  def choose[A](items: Seq[A], weights: Seq[Double]): Pnp[A] = {
-    CategoricalPnp(items.zip(weights).map(x => (x._1, Math.log(x._2))).toArray, null)
+  def choose[A](items: Seq[A], weights: Seq[Double], tag: Any = null): Pnp[A] = {
+    CategoricalPnp(items.zip(weights).map(x => (x._1, Math.log(x._2))).toArray, tag)
   }
 
   def choose[A](items: Seq[A]): Pnp[A] = {

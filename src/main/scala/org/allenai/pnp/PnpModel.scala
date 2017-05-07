@@ -1,9 +1,7 @@
 package org.allenai.pnp
 
-import com.jayantkrish.jklol.util.IndexedList
-
 import edu.cmu.dynet._
-import scala.collection.mutable.MapBuilder
+
 import scala.collection.mutable.ListBuffer
 
 /** A neural probabilistic program model consisting
@@ -12,7 +10,7 @@ import scala.collection.mutable.ListBuffer
   * graph of a program during inference.
   */
 class PnpModel(var names: Map[String, Parameter], var lookupNames: Map[String, LookupParameter], 
-    val model: Model, var locallyNormalized: Boolean) {
+    var lstmBuilders: Map[String, LstmBuilder], val model: Model, var locallyNormalized: Boolean) {
 
   def addParameter(name: String, dim: Dim): Parameter = {
     val param = model.addParameters(dim)
@@ -39,6 +37,10 @@ class PnpModel(var names: Map[String, Parameter], var lookupNames: Map[String, L
     param
   }
 
+  def addLstmBuilder(name: String, builder: LstmBuilder): Unit = {
+    lstmBuilders += (name -> builder)
+  }
+
   def getParameter(name: String): Parameter = {
     names(name)
   }
@@ -47,8 +49,12 @@ class PnpModel(var names: Map[String, Parameter], var lookupNames: Map[String, L
     lookupNames(name)
   }
 
+  def getLstmBuilder(name: String): LstmBuilder = {
+    lstmBuilders(name)
+  }
+
   def getComputationGraph(): CompGraph = {
-    new CompGraph(model, names, lookupNames, locallyNormalized)
+    new CompGraph(this)
   }
 
   def save(saver: ModelSaver): Unit = {
@@ -66,12 +72,18 @@ class PnpModel(var names: Map[String, Parameter], var lookupNames: Map[String, L
       saver.addObject(k)
       saver.addLookupParameter(v)
     }
+
+    saver.addInt(lstmBuilders.size)
+    for ((k, v) <- lstmBuilders) {
+      saver.addObject(k)
+      saver.addLstmBuilder(v)
+    }
   }
 }
 
 object PnpModel {
   def init(locallyNormalized: Boolean): PnpModel = {
-    new PnpModel(Map(), Map(), new Model, locallyNormalized)
+    new PnpModel(Map(), Map(), Map(), new Model, locallyNormalized)
   }
   
   def load(loader: ModelLoader): PnpModel = {
@@ -94,6 +106,14 @@ object PnpModel {
       lookups += ((name, param))
     }
 
-    new PnpModel(params.toMap, lookups.toMap, model, locallyNormalized)
+    val numLstms = loader.loadInt()
+    val lstmBuilders = ListBuffer[(String, LstmBuilder)]()
+    for (i <- 0 until numLstms) {
+      val name = loader.loadObject(classOf[String])
+      val lstmBuilder = loader.loadLstmBuilder()
+      lstmBuilders += ((name, lstmBuilder))
+    }
+
+    new PnpModel(params.toMap, lookups.toMap, lstmBuilders.toMap, model, locallyNormalized)
   }
 }
