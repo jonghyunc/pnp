@@ -14,6 +14,6 @@ case class PnpExample[A](unconditional: Pnp[A], conditional: Pnp[A],
 
 object PnpExample {
   def fromDistributions[A](unconditional: Pnp[A], conditional: Pnp[A]) = {
-    PnpExample[A](unconditional, conditional, Env.init, ExecutionScore.zero)
+    PnpExample[A](unconditional, conditional, Env.init, ExecutionScore.Zero)
   }
 }

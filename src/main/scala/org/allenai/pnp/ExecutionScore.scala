@@ -9,7 +9,7 @@ object ExecutionScore {
    */
   type ExecutionScore = (Any, Any, Env) => Double
 
-  val zero = new ExecutionScore() {
+  val Zero = new ExecutionScore() {
     def apply(tag: Any, choice: Any, env: Env): Double = {
         0.0
     }
