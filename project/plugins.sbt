@@ -1,2 +1,2 @@
 addSbtPlugin("me.lessis" % "bintray-sbt" % "0.3.0")
-addSbtPlugin("org.allenai.plugins" % "allenai-sbt-plugins" % "1.4.8")
+addSbtPlugin("org.xerial.sbt" % "sbt-sonatype" % "1.1")

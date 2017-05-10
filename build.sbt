@@ -1,4 +1,4 @@
-organization := "org.allenai"
+organization := "com.jayantkrish.pnp"
 
 name := "pnp"
 
@@ -20,3 +20,31 @@ libraryDependencies ++= Seq(
 )
 
 licenses += ("Apache-2.0", url("https://www.apache.org/licenses/LICENSE-2.0"))
+
+homepage := Some(url("https://github.com/jayantk/pnp"))
+
+publishMavenStyle := true
+
+scmInfo := Some(
+  ScmInfo(
+    url("https://github.com/jayantk/pnp"),
+    "scm:git:git@github.com:jayantk/pnp.git"
+  )
+)
+
+developers := List(
+  Developer(
+   id = "jayantk",
+   name = "Jayant Krishnamurthy",
+   email = "jayantk@cs.cmu.edu",
+   url = url("http://cs.cmu.edu/~jayantk")
+   )
+)
+
+publishTo := {
+  val nexus = "https://oss.sonatype.org/"
+  if (isSnapshot.value)
+    Some("snapshots" at nexus + "content/repositories/snapshots")
+  else
+    Some("releases"  at nexus + "service/local/staging/deploy/maven2")
+}
