@@ -213,14 +213,16 @@ case class CategoricalPnp[A](dist: Array[(A, Double)], tag: Any) extends Pnp[A] 
 
 case class ParameterizedCategoricalPnp[A](items: Array[A], parameter: Expression, tag: Any) extends Pnp[A] {
 
-  def getTensor(graph: CompGraph): (Expression, Tensor, Int) = {
+  def getTensor(graph: CompGraph, context: PnpInferenceContext): (Expression, Tensor, Int) = {
     val expr = if (graph.pnpModel.locallyNormalized) {
       Expression.logSoftmax(parameter)
     } else {
       parameter
     }
 
+    context.log.startTimer("pnp/incremental_forward")
     val paramTensor = ComputationGraph.incrementalForward(expr)
+    context.log.stopTimer("pnp/incremental_forward")
 
     val dims = paramTensor.getD
 
@@ -251,7 +253,7 @@ case class ParameterizedCategoricalPnp[A](items: Array[A], parameter: Expression
       continuation: PnpContinuation[A, B], queue: PnpSearchQueue[B],
       finished: PnpSearchQueue[B]): Unit = {
     if (items.size > 0) {
-      val (expr, paramTensor, numTensorValues) = getTensor(context.compGraph)
+      val (expr, paramTensor, numTensorValues) = getTensor(context.compGraph, context)
       val v = paramTensor.toVector
       for (i <- 0 until numTensorValues) {
         val nextEnv = env.addLabel(expr, i, items(i), tag)
@@ -267,7 +269,7 @@ case class ParameterizedCategoricalPnp[A](items: Array[A], parameter: Expression
       finished: PnpSearchQueue[D]): Unit = {
     // TODO: what is the right behavior if items.size == 0?
     if (items.size > 0) {
-      val (expr, paramTensor, numTensorValues) = getTensor(context.compGraph)
+      val (expr, paramTensor, numTensorValues) = getTensor(context.compGraph, context)
       val logScores = paramTensor.toSeq.toArray
 
       // TODO: This code assumes that the distribution is locally normalized.

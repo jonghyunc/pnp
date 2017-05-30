@@ -20,6 +20,7 @@ class LoglikelihoodTrainer(val epochs: Int, val beamSize: Int, val sumMultipleEx
       var searchErrors = 0
       log.notifyIterationStart(i)
 
+      log.startTimer("loglikelihood_trainer")
       for (example <- Random.shuffle(examples)) {
         ComputationGraph.renew()
 
@@ -27,12 +28,12 @@ class LoglikelihoodTrainer(val epochs: Int, val beamSize: Int, val sumMultipleEx
         val context = PnpInferenceContext.init(model).setLog(log)
 
         // Compute the distribution over correct executions.
-        log.startTimer("pp_loglikelihood/forward")
+        log.startTimer("loglikelihood_trainer/beam")
         val conditional = example.conditional.beamSearch(beamSize, -1,
           env, context.addExecutionScore(example.conditionalExecutionScore))
-        log.stopTimer("pp_loglikelihood/forward")
+        log.stopTimer("loglikelihood_trainer/beam")
 
-        log.startTimer("pp_loglikelihood/build_loss")
+        log.startTimer("loglikelihood_trainer/build_loss")
         val exLosses = conditional.executions.map(_.env.getScore)
 
         val logProbExpr = if (exLosses.length == 0) {
@@ -53,23 +54,24 @@ class LoglikelihoodTrainer(val epochs: Int, val beamSize: Int, val sumMultipleEx
 
           Expression.logSumExp(new ExpressionVector(exLosses))
         }
-        log.stopTimer("pp_loglikelihood/build_loss")
+        log.stopTimer("loglikelihood_trainer/build_loss")
 
         if (logProbExpr != null) {
           val lossExpr = -1.0f * logProbExpr
-          log.startTimer("pp_loglikelihood/eval_loss")
+          log.startTimer("loglikelihood_trainer/eval_loss")
           loss += ComputationGraph.incrementalForward(lossExpr).toFloat
-          log.stopTimer("pp_loglikelihood/eval_loss")
+          log.stopTimer("loglikelihood_trainer/eval_loss")
 
           // cg.print_graphviz()
-          log.startTimer("pp_loglikelihood/backward")
+          log.startTimer("loglikelihood_trainer/backward")
           ComputationGraph.backward(lossExpr)
           trainer.update(1.0f)
-          log.stopTimer("pp_loglikelihood/backward")
+          log.stopTimer("loglikelihood_trainer/backward")
         } else {
           searchErrors += 1
         }
       }
+      log.stopTimer("loglikelihood_trainer")
 
       trainer.updateEpoch()
 
