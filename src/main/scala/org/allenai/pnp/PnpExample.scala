@@ -1,6 +1,7 @@
 package org.allenai.pnp
 
 import ExecutionScore.ExecutionScore
+import org.allenai.pnp.AuxiliaryLoss.AuxiliaryLoss
 
 /** A training example for neural probabilistic programs. An example
   * consists of a conditional and an unconditional program, and an
@@ -9,7 +10,8 @@ import ExecutionScore.ExecutionScore
   * of conditional executions during inference.
   */
 case class PnpExample[A](unconditional: Pnp[A], conditional: Pnp[A],
-    env: Env, conditionalExecutionScore: ExecutionScore) {
+    env: Env, conditionalExecutionScore: ExecutionScore,
+    auxiliaryLoss: AuxiliaryLoss = AuxiliaryLoss.Zero) {
 }
 
 object PnpExample {

@@ -269,7 +269,7 @@ class SemanticParser(val actionSpace: ActionSpace, val vocab: IndexedList[String
         actionHiddenScores = actionHiddenWeights2 * actionHidden
  
         // Score the templates.
-        actionScores = Expression.pickrange(actionHiddenScores, 0, baseTemplates.length)
+        actionScores = Expression.pickRange(actionHiddenScores, 0, baseTemplates.length)
 
         // Score the entity templates
         entityBias <- Pnp.param(SemanticParser.ENTITY_BIAS_PARAM + hole.t)

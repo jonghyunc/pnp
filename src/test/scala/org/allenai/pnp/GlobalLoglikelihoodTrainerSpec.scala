@@ -16,8 +16,6 @@ class GlobalLoglikelihoodTrainerSpec extends FlatSpec with Matchers {
 
   val TOLERANCE = 0.01
 
-
-
   "GlobalLoglikelihoodTrainer" should "train" in {
     val vocab = Array(0,1,2)
 
@@ -38,7 +36,7 @@ class GlobalLoglikelihoodTrainerSpec extends FlatSpec with Matchers {
           rest <- lm(k - 1)
           previous = rest.last
           transition <- Pnp.param("transition")
-          params = Expression.pickrange(
+          params = Expression.pickRange(
             transition, previous * vocab.length, (previous + 1) * vocab.length)
           choice <- Pnp.choose(vocab, params, k - 1)
         } yield {

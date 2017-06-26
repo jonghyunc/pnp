@@ -15,8 +15,8 @@ import edu.cmu.dynet._
   * Env is immutable.
   */
 class Env(val labels: List[Int], val labelNodeIds: List[Expression],
-    labelChoices: List[Any], labelTags: List[Any], varnames: IndexedList[String],
-    vars: Array[Any]) {
+    labelChoices: List[Any], labelTags: List[Any], auxiliaryLosses: List[Expression],
+    varnames: IndexedList[String], vars: Array[Any]) {
 
   /** Get the value of the named variable as an instance
     * of type A.
@@ -62,7 +62,7 @@ class Env(val labels: List[Int], val labelNodeIds: List[Expression],
     val index = nextVarNames.getIndex(name)
     nextVars(index) = value
 
-    new Env(labels, labelNodeIds, labelChoices, labelTags, nextVarNames, nextVars)
+    new Env(labels, labelNodeIds, labelChoices, labelTags, auxiliaryLosses, nextVarNames, nextVars)
   }
 
   def setVar(nameInt: Int, value: Any): Env = {
@@ -70,7 +70,7 @@ class Env(val labels: List[Int], val labelNodeIds: List[Expression],
     Array.copy(vars, 0, nextVars, 0, vars.size)
     nextVars(nameInt) = value
 
-    new Env(labels, labelNodeIds, labelChoices, labelTags, varnames, nextVars)
+    new Env(labels, labelNodeIds, labelChoices, labelTags, auxiliaryLosses, varnames, nextVars)
   }
 
   def isVarBound(name: String): Boolean = {
@@ -82,7 +82,7 @@ class Env(val labels: List[Int], val labelNodeIds: List[Expression],
     */
   def addLabel(param: Expression, index: Int, choice: Any, tag: Any): Env = {
     new Env(index :: labels, param :: labelNodeIds, choice :: labelChoices,
-      tag :: labelTags, varnames, vars)
+      tag :: labelTags, auxiliaryLosses, varnames, vars)
   }
   
   /** Get a scalar-valued expression that evaluates to the
@@ -116,6 +116,19 @@ class Env(val labels: List[Int], val labelNodeIds: List[Expression],
     scores.reverse
   }
 
+  def addAuxiliaryLoss(loss: Expression): Env = {
+    new Env(labels, labelNodeIds, labelChoices, labelTags,
+      loss :: auxiliaryLosses, varnames, vars)
+  }
+
+  def getAuxiliaryLoss: Expression = {
+    var loss = Expression.input(0)
+    for (auxiliaryLoss <- auxiliaryLosses) {
+      loss += auxiliaryLoss
+    }
+    loss
+  }
+
   val choices: List[Any] = labelChoices.reverse
 
   val tags: List[Any] = labelTags.reverse
@@ -124,6 +137,6 @@ class Env(val labels: List[Int], val labelNodeIds: List[Expression],
 object Env {
   def init: Env = {
     new Env(List.empty, List.empty, List.empty, List.empty,
-      IndexedList.create(), Array())
+      List.empty, IndexedList.create(), Array())
   }
 }

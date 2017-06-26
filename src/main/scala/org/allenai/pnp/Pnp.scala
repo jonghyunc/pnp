@@ -315,6 +315,24 @@ case class ScorePnp(score: Double) extends Pnp[Unit] {
   }
 }
 
+case class ExposePnp[A](item: A, tag: Any) extends Pnp[A] {
+  override def searchStep[B](env: Env, logProb: Double, context: PnpInferenceContext,
+      continuation: PnpContinuation[A, B], queue: PnpSearchQueue[B],
+      finished: PnpSearchQueue[B]): Unit = {
+    val auxiliaryLoss = context.computeAuxiliaryLoss(tag, item, env)
+    val nextEnv = env.addAuxiliaryLoss(auxiliaryLoss)
+    continuation.searchStep(item, nextEnv, logProb, context, queue, finished)
+  }
+
+  override def sampleStep[B](env: Env, logProb: Double, context: PnpInferenceContext,
+      continuation: PnpContinuation[A,B], queue: PnpSearchQueue[B],
+      finished: PnpSearchQueue[B]): Unit = {
+    val auxiliaryLoss = context.computeAuxiliaryLoss(tag, item, env)
+    val nextEnv = env.addAuxiliaryLoss(auxiliaryLoss)
+    continuation.sampleStep(item, nextEnv, logProb, context, queue, finished)
+  }
+}
+
 // Class for collapsing out multiple choices into a single choice
 case class CollapsedSearch[A](dist: Pnp[A]) extends Pnp[A] {
   override def searchStep[B](env: Env, logProb: Double, context: PnpInferenceContext, continuation: PnpContinuation[A, B],
@@ -474,6 +492,10 @@ object Pnp {
 
   def chooseTag[A](items: Seq[A], tag: Any): Pnp[A] = {
     CategoricalPnp(items.map(x => (x, 0.0)).toArray, tag)
+  }
+
+  def expose[A](item: A, tag: Any): Pnp[A] = {
+    ExposePnp(item, tag)
   }
 
   /** The failure program that has no executions.
