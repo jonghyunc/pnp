@@ -23,7 +23,6 @@ class LoglikelihoodTrainer(val epochs: Int, val beamSize: Int, val sumMultipleEx
       log.startTimer("loglikelihood_trainer")
       for (example <- Random.shuffle(examples)) {
         ComputationGraph.renew()
-        ComputationGraph.setImmediateCompute(immediateCompute)
 
         val env = example.env
 

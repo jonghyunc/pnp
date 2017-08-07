@@ -66,12 +66,12 @@ class VisualizeMatchingCli extends AbstractCli {
     } yield {
       val targetInd = targetLabel.partLabels.indexOf(label)
       val sourceInd = sourceLabel.partLabels.indexOf(label)
-      (target.parts(targetInd), source.parts(sourceInd)) 
+      (target.parts(targetInd), Some(source.parts(sourceInd)))
     }
 
     val numGrid = options.valueOf(numGridOpt)
     val sourcePart = source.parts(sourceLabel.partLabels.indexOf(options.valueOf(sourcePartOpt)))
-    val scores = getGlobalScores(matching, source, sourceLabel, target, sourcePart,
+    val scores = getGlobalScores(PartialMatching(matching.toList), source, sourceLabel, target, sourcePart,
         matchingModel, numGrid)
     
     val sortedScores = scores.toList.sortBy(p => (p._1.y, p._1.x))
@@ -124,7 +124,7 @@ class VisualizeMatchingCli extends AbstractCli {
         diagram.parts ++ newParts, newDiagramFeatures)
   }
 
-  def getGlobalScores(matching: Seq[(Part, Part)], source: Diagram, sourceLabel: DiagramLabel,
+  def getGlobalScores(matching: PartialMatching, source: Diagram, sourceLabel: DiagramLabel,
       target: Diagram, sourcePart: Part, model: MatchingModel, numGridPoints: Int): Map[Point, Float] = {
     val augmentedTarget = augmentDiagramParts(target, numGridPoints)
     val gridParts = augmentedTarget.parts.drop(target.parts.length)
@@ -134,12 +134,11 @@ class VisualizeMatchingCli extends AbstractCli {
     val preprocessing = model.preprocess(source, sourceLabel, augmentedTarget,
         augmentedTarget.parts, cg)
 
-    val matchingList = matching.toList
-    val matchingScore = model.getNnGlobalScore(matchingList, cg, preprocessing)
+    val matchingScore = model.getNnGlobalScore(matching, cg, preprocessing)
 
     val partScoreMap = gridParts.map {
       part =>
-      val candidateMatching = (part, sourcePart) :: matchingList
+      val candidateMatching = (part, Some(sourcePart)) :: matching
       val candidateScore = model.getNnGlobalScore(candidateMatching, cg, preprocessing)
       
       val scoreDelta = ComputationGraph.incrementalForward(candidateScore - matchingScore).toFloat
