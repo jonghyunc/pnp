@@ -557,6 +557,16 @@ object Pnp {
     }
   }
 
+  /** Get a neural network lookup parameter by name.
+    */
+  def lookupParam(name: String, idx: Long): Pnp[Expression] = {
+    for {
+      cg <- Pnp.computationGraph()
+    } yield {
+      Expression.lookup(cg.getLookupParameter(name), idx)
+    }
+  }
+
   /** Add a FloatVector to the computation graph as a constant.
     */
   def constant(dims: Dim, vector: FloatVector): Pnp[Expression] = {

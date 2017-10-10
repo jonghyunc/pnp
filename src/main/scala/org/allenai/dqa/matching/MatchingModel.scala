@@ -167,9 +167,9 @@ class MatchingModel(var config: MatchingModelConfig,
       }
 
       val forwardSorted = forwardEmbeddings.sortBy(x => x._1.ind)
-      val backwardSorted = forwardEmbeddings.sortBy(x => x._1.ind)
+      val backwardSorted = backwardEmbeddings.sortBy(x => x._1.ind)
 
-      val concatenated = forwardSorted.zip(backwardSorted.reverse).map(x =>
+      val concatenated = forwardSorted.zip(backwardSorted).map(x =>
         concatenate(new ExpressionVector(List(x._1._2, x._2._2))))
 
       concatenated.toArray

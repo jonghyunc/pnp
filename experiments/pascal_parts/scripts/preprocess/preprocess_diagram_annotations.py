@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import sys
-import ujson as json
+import json as json
 import random
 import re
 

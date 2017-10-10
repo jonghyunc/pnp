@@ -2,12 +2,13 @@
 
 DATA_DIR=data/pascal_parts/
 SCRIPT_DIR=experiments/pascal_parts/scripts/preprocess/
-RAW_ANNOTATIONS=$DATA_DIR/pascal_parts_for_matching/images/annotation_normalized.json
+# RAW_ANNOTATIONS=$DATA_DIR/pascal_parts_for_matching/images/annotation_normalized.json
+RAW_ANNOTATIONS=$DATA_DIR/annotation.json
 # IMAGE_DIR=$DATA_DIR/pascal_parts_for_matching/images/
 
 # DIAGRAM_SIZE_OUTPUT=$DATA_DIR/diagram_sizes.txt
 OUTPUT=$DATA_DIR/diagrams.json
-MATCHING_DIR=$DATA_DIR/pascal_parts_22/
+MATCHING_DIR=$DATA_DIR/pascal_parts_48/
 FEATURE_OUTPUT=$DATA_DIR/diagram_features_xy.json
 
 # This command seems to work from the command line but not in the script ??
