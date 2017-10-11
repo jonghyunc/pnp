@@ -64,8 +64,8 @@ class SampleSpec extends FlatSpec with Matchers {
       }
     }
 
-    val model = new Model()
-    val cg = CompGraph.empty(model)
+    val model = PnpModel.init(true)
+    val cg = model.getComputationGraph()
     val context = PnpInferenceContext.init(cg).addExecutionScore(score)
     val env = Env.init
 

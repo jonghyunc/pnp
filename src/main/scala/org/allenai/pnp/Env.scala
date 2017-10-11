@@ -15,6 +15,7 @@ import edu.cmu.dynet._
   * Env is immutable.
   */
 class Env(val labels: List[Int], val labelNodeIds: List[Expression],
+    labelChoices: List[Any], labelTags: List[Any], auxiliaryLosses: List[Expression],
     varnames: IndexedList[String], vars: Array[Any]) {
 
   /** Get the value of the named variable as an instance
@@ -61,7 +62,7 @@ class Env(val labels: List[Int], val labelNodeIds: List[Expression],
     val index = nextVarNames.getIndex(name)
     nextVars(index) = value
 
-    new Env(labels, labelNodeIds, nextVarNames, nextVars)
+    new Env(labels, labelNodeIds, labelChoices, labelTags, auxiliaryLosses, nextVarNames, nextVars)
   }
 
   def setVar(nameInt: Int, value: Any): Env = {
@@ -69,7 +70,7 @@ class Env(val labels: List[Int], val labelNodeIds: List[Expression],
     Array.copy(vars, 0, nextVars, 0, vars.size)
     nextVars(nameInt) = value
 
-    new Env(labels, labelNodeIds, varnames, nextVars)
+    new Env(labels, labelNodeIds, labelChoices, labelTags, auxiliaryLosses, varnames, nextVars)
   }
 
   def isVarBound(name: String): Boolean = {
@@ -79,8 +80,9 @@ class Env(val labels: List[Int], val labelNodeIds: List[Expression],
   /** Attaches a label to a node of the computation graph in this
     * execution.
     */
-  def addLabel(param: Expression, index: Int): Env = {
-    new Env(index :: labels, param :: labelNodeIds, varnames, vars)
+  def addLabel(param: Expression, index: Int, choice: Any, tag: Any): Env = {
+    new Env(index :: labels, param :: labelNodeIds, choice :: labelChoices,
+      tag :: labelTags, auxiliaryLosses, varnames, vars)
   }
   
   /** Get a scalar-valued expression that evaluates to the
@@ -90,22 +92,51 @@ class Env(val labels: List[Int], val labelNodeIds: List[Expression],
     * the score is computed by summing the negative log-softmax
     * scores of each choice.
     */
-  def getScore(normalize: Boolean): Expression = {
+  def getScore: Expression = {
     var exScore = Expression.input(0)
     for ((expr, labelInd) <- labelNodeIds.zip(labels)) {
-      val decisionScore = if (normalize) {
-        Expression.pickNegLogSoftmax(expr, labelInd)
-      } else {
-        Expression.pick(expr, labelInd)
-      }
+      val decisionScore = Expression.pick(expr, labelInd)
       exScore = exScore + decisionScore
     }
     exScore
   }
+
+  /**
+    * Get the scores for each decision in this environment,
+    * in the order that they were made.
+    *
+    * @return
+    */
+  def getScores: List[Expression] = {
+    val scores = for {
+      (expr, labelInd) <- labelNodeIds.zip(labels)
+    } yield {
+      Expression.pick(expr, labelInd)
+    }
+    scores.reverse
+  }
+
+  def addAuxiliaryLoss(loss: Expression): Env = {
+    new Env(labels, labelNodeIds, labelChoices, labelTags,
+      loss :: auxiliaryLosses, varnames, vars)
+  }
+
+  def getAuxiliaryLoss: Expression = {
+    var loss = Expression.input(0)
+    for (auxiliaryLoss <- auxiliaryLosses) {
+      loss += auxiliaryLoss
+    }
+    loss
+  }
+
+  val choices: List[Any] = labelChoices.reverse
+
+  val tags: List[Any] = labelTags.reverse
 }
 
 object Env {
   def init: Env = {
-    new Env(List.empty, List.empty, IndexedList.create(), Array())
+    new Env(List.empty, List.empty, List.empty, List.empty,
+      List.empty, IndexedList.create(), Array())
   }
 }

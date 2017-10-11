@@ -44,10 +44,13 @@ class MatchingModel(var config: MatchingModelConfig,
       preprocessing = preprocess(source, sourceLabel, target, targetParts, cg)
       // pointerNetInitialInput = parameter(cg.cg, cg.getParameter(POINTER_NET_INIT))
       
-      matching <- matchRemaining(targetParts.toList,
-          sourceParts.toSet, List(), preprocessing, preprocessing.pointerNetStartState)
+      matching <- matchRemaining(targetParts.toList, sourceParts.toSet,
+        PartialMatching(List()), preprocessing, preprocessing.pointerNetStartState)
     } yield {
-      MatchingLabel(matching.map(x => (x._1.ind, x._2.ind)).toMap)
+      MatchingLabel(matching.targetToSource.map {
+        case (targetPart, Some(sourcePart)) => (targetPart.ind, Some(sourcePart.ind))
+        case (targetPart, None) => (targetPart.ind, None)
+      }.toMap)
     }
   }
   
@@ -133,6 +136,13 @@ class MatchingModel(var config: MatchingModelConfig,
       targetSourceScores
     }
 
+    val noneMatchScores = if (config.matchNone) {
+      // TODO: you may want to populate these scores instead of just using 0.
+      Array.fill(targetFeatures.length) { Expression.input(0.0f) }
+    } else {
+      null
+    }
+
     val (pointerNetEmbeddings, pointerNetState) = if (config.pointerNet) {
       encodePointerNetwork(sourceFeatures.map(x => x.matching),
           targetPartsInTestOrder.map(x => targetFeatures(x.ind).matching))
@@ -140,7 +150,7 @@ class MatchingModel(var config: MatchingModelConfig,
       (null, -1)
     }
 
-    new MatchingPreprocessing(sourceFeatures, targetFeatures, matchScores,
+    new MatchingPreprocessing(sourceFeatures, targetFeatures, matchScores, noneMatchScores,
         pointerNetEmbeddings, pointerNetState)
   }
 
@@ -281,11 +291,12 @@ class MatchingModel(var config: MatchingModelConfig,
    * if the matching is [(s1 -> t1), (s2 -> t2)], this generates
    * (r(s1, s2), r(t1, t2)). 
    */
-  private def getRelationVectors(matching: List[(Part, Part)],
+  private def getRelationVectors(matching: PartialMatching,
       preprocessing: MatchingPreprocessing, f: PointExpressions => Expression): List[(Expression, Expression)] = {
+    // This score ignores points that are matched to None.
     for {
-      (t1, s1) <- matching
-      (t2, s2) <- matching if t2 != t1
+      (t1, Some(s1)) <- matching.targetToSource
+      (t2, Some(s2)) <- matching.targetToSource if t2 != t1
     } yield {
       val t1ToT2 = f(preprocessing.targetFeatures(t2.ind)) - f(preprocessing.targetFeatures(t1.ind))
       val s1ToS2 = f(preprocessing.sourceFeatures(s2.ind)) - f(preprocessing.sourceFeatures(s1.ind))
@@ -293,7 +304,7 @@ class MatchingModel(var config: MatchingModelConfig,
     }
   }
 
-  def getAffineGlobalScore(matching: List[(Part, Part)],
+  def getAffineGlobalScore(matching: PartialMatching,
     compGraph: CompGraph, preprocessing: MatchingPreprocessing): Expression = {
     val sourceTargetExpressions = getRelationVectors(matching, preprocessing, x => x.xy)
     if (sourceTargetExpressions.size > 2) {
@@ -314,7 +325,7 @@ class MatchingModel(var config: MatchingModelConfig,
     }
   }
   
-  def getNnGlobalScore(matching: List[(Part, Part)], 
+  def getNnGlobalScore(matching: PartialMatching,
       compGraph: CompGraph, preprocessing: MatchingPreprocessing): Expression = {
     val transformW1 = parameter(compGraph.getParameter(TRANSFORM_W1))
     val deltaW1 = parameter(compGraph.getParameter(DELTA_W1))
@@ -325,7 +336,7 @@ class MatchingModel(var config: MatchingModelConfig,
           transformW1, deltaW1, deltaB1, deltaW2, deltaB2)
   }
 
-  private def getNnGlobalScore(matching: List[(Part, Part)], 
+  private def getNnGlobalScore(matching: PartialMatching,
       compGraph: CompGraph, preprocessing: MatchingPreprocessing, f: PointExpressions => Expression,
       transformW1: Expression, deltaW1: Expression, deltaB1: Expression,
       deltaW2: Expression, deltaB2: Expression): Expression = {
@@ -345,8 +356,8 @@ class MatchingModel(var config: MatchingModelConfig,
     }
   }
 
-  private def getGlobalScores(targetPart: Part, remainingArray: Array[Part],
-      currentMatching: List[(Part, Part)], compGraph: CompGraph,
+  private def getGlobalScores(targetPart: Part, remainingArray: Array[Option[Part]],
+      currentMatching: PartialMatching, compGraph: CompGraph,
       preprocessing: MatchingPreprocessing): Array[Expression] = {
     
     var scoreArray = remainingArray.map(x => input(0.0f))
@@ -410,8 +421,8 @@ class MatchingModel(var config: MatchingModelConfig,
    * Get a score for matching targetPart against each source part
    * in remainingArray, given the currentMatching. 
    */
-  private def getScores(targetPart: Part, remainingArray: Array[Part],
-      currentMatching: List[(Part, Part)], compGraph: CompGraph,
+  private def getScores(targetPart: Part, remainingArray: Array[Option[Part]],
+      currentMatching: PartialMatching, compGraph: CompGraph,
       preprocessing: MatchingPreprocessing,
       pointerNetState: Int, pointerNetInput: Expression): (Expression, Int) = {
     val unaryScores = remainingArray.map(x => preprocessing.getMatchScore(x, targetPart))
@@ -425,8 +436,10 @@ class MatchingModel(var config: MatchingModelConfig,
       val pointerNetOutput = pointerNetOutputBuilder.addInput(pointerNetState, pointerNetInput)
       pointerNetNextState = pointerNetOutputBuilder.state()
       
-      val attentionScores = remainingArray.map(x =>
-        dotProduct(preprocessing.pointerNetEmbeddings(x.ind), pointerNetOutput))
+      val attentionScores = remainingArray.map {
+        case Some(x) => dotProduct(preprocessing.pointerNetEmbeddings(x.ind), pointerNetOutput)
+        case None => Expression.input(0.0f)
+      }
 
       /*
       val pnSourceW = parameter(compGraph.getParameter(POINTER_NET_SOURCE_W))
@@ -448,13 +461,18 @@ class MatchingModel(var config: MatchingModelConfig,
    * remainingSourceParts. 
    */
   private def matchRemaining(targetParts: List[Part], remainingSourceParts: Set[Part],
-      previousMatching: List[(Part, Part)], preprocessing: MatchingPreprocessing,
-      pointerNetState: Int): Pnp[List[(Part, Part)]] = {
+      previousMatching: PartialMatching, preprocessing: MatchingPreprocessing,
+      pointerNetState: Int): Pnp[PartialMatching] = {
     if (targetParts.length == 0) {
       Pnp.value(previousMatching)
     } else {
       val targetPart = targetParts.head
-      val remainingArray = remainingSourceParts.toArray
+
+      val remainingArray: Array[Option[Part]] = if (config.matchNone) {
+        remainingSourceParts.toArray.map(Some(_)) :+ None
+      } else {
+        remainingSourceParts.toArray.map(Some(_))
+      }
 
       for {
         cg <- Pnp.computationGraph()
@@ -465,15 +483,13 @@ class MatchingModel(var config: MatchingModelConfig,
         nextSourceParts = if (config.matchIndependent) {
           remainingSourceParts
         } else {
-          remainingSourceParts - chosenSourcePart
+          if (chosenSourcePart.isDefined) {
+            remainingSourceParts - chosenSourcePart.get
+          } else {
+            remainingSourceParts
+          }
         }
         matching = (targetPart, chosenSourcePart) :: previousMatching
-        
-        nextPointerNetInput = if (config.pointerNet) {
-          preprocessing.sourceFeatures(chosenSourcePart.ind).matching
-        } else {
-          null
-        }
 
         rest <- matchRemaining(targetParts.tail, nextSourceParts, matching, preprocessing,
             nextPointerNetState)
@@ -513,16 +529,26 @@ class MatchingModel(var config: MatchingModelConfig,
   }
 }
 
+case class PartialMatching(targetToSource: List[(Part, Option[Part])]) {
+  def ::(elt: (Part, Option[Part])): PartialMatching = {
+    PartialMatching(elt :: targetToSource)
+  }
+}
+
 /**
  * Stores the output of preprocessing and neural network
  * computations that can be shared across many choices.
  */
 class MatchingPreprocessing(val sourceFeatures: Array[PointExpressions],
     val targetFeatures: Array[PointExpressions], val matchScores: Array[Array[Expression]],
-    val pointerNetEmbeddings: Array[Expression], val pointerNetStartState: Int) {
+    val noneMatchScores: Array[Expression], val pointerNetEmbeddings: Array[Expression],
+    val pointerNetStartState: Int) {
   
-  def getMatchScore(sourcePart: Part, targetPart: Part): Expression = {
-    matchScores(sourcePart.ind)(targetPart.ind)
+  def getMatchScore(sourcePartOpt: Option[Part], targetPart: Part): Expression = {
+    sourcePartOpt match {
+      case Some(sourcePart) => matchScores(sourcePart.ind)(targetPart.ind)
+      case None => noneMatchScores(targetPart.ind)
+    }
   }
 }
 
@@ -531,13 +557,13 @@ case class MatchingExecutionScore(label: MatchingLabel) extends ExecutionScore {
     if (tag != null && tag.isInstanceOf[Part]) {
       val targetPart = tag.asInstanceOf[Part]
       
-      Preconditions.checkArgument(choice.isInstanceOf[Part])
-      val sourcePart = choice.asInstanceOf[Part]
+      val chosenSourcePart = choice.asInstanceOf[Option[Part]]
+      val sourcePartLabel = label.getSourcePartInd(targetPart.ind)
 
-      if (label.getSourcePartInd(targetPart.ind) == sourcePart.ind) {
-        0.0
-      } else {
-        1.0
+      (chosenSourcePart, sourcePartLabel) match {
+        case (Some(x), Some(y)) if x.ind == y => 0.0
+        case (None, None) => 0.0
+        case _ => 1.0
       }
     } else {
       0.0
@@ -569,6 +595,8 @@ class MatchingModelConfig() extends Serializable {
   var dropoutProb = -1.0f
 
   var matchIndependent: Boolean = false
+  var matchNone: Boolean = false
+
   var affineTransformScore: Boolean = false
   var structuralConsistency: Boolean = false
   var matchingNetwork: Boolean = false

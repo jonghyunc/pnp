@@ -143,7 +143,7 @@ class TestMatchingCli extends AbstractCli {
       val targetDims = Point(x.target.width, x.target.height)
       MatchingLoss(x.source.imageId, x.source.parts, x.sourceLabel, sourceDims,
           x.target.imageId, x.target.parts, x.targetLabel, targetDims,
-          predicted.targetToSourcePartMap.toList)
+        predicted.targetToSourcePartMap.toList)
     }
 
     val invalidMatchings = numInvalidMatchings.toDouble / examples.size
@@ -159,7 +159,7 @@ class TestMatchingCli extends AbstractCli {
 
 case class MatchingLoss(sourceImgId: String, sourceParts: Vector[Part], sourceLabel: DiagramLabel,
     sourceDims: Point, targetImgId: String, targetParts: Vector[Part], targetLabel: DiagramLabel,
-    targetDims: Point, matching: List[(Int, Int)]) {
+    targetDims: Point, matching: List[(Int, Option[Int])]) {
 }
 
 object MyJsonProtocol extends DefaultJsonProtocol {
