@@ -12,9 +12,9 @@ import com.jayantkrish.jklol.util.IndexedList
 import edu.cmu.dynet._
 
 class SemanticParserSpec extends FlatSpec with Matchers {
-  
+
   Initialize.initialize()
- 
+
   val dataStrings = List(
       ("state", "state:<e,t>"),
       ("city", "city:<e,t>"),
@@ -36,17 +36,13 @@ class SemanticParserSpec extends FlatSpec with Matchers {
   val model = PnpModel.init(true)
   val parser = SemanticParser.create(lexicon, vocab, model)
 
-  "SemanticParser" should "generate application templates" in {
-    println(lexicon.typeTemplateMap)
-  }
-
-  it should "decode expressions to template sequences" in {
+  "SemanticParser" should "decode expressions to template sequences" in {
     val e = exprParser.parse(
         "(argmax:<<e,t>,e> (lambda ($0) (and:<t*,t> (city:<e,t> $0) (major:<e,t> $0))))")
-    // This method will throw an error if it can't decode the expression properly. 
+    // This method will throw an error if it can't decode the expression properly.
     val templates = parser.generateActionSequence(e, EntityLinking(List()), typeDeclaration)
   }
-  
+
   it should "condition on expressions" in {
     val label = exprParser.parse("(lambda ($0) (and:<t*,t> (city:<e,t> $0) (major:<e,t> $0)))")
     val entityLinking = EntityLinking(List())
@@ -61,14 +57,14 @@ class SemanticParserSpec extends FlatSpec with Matchers {
     results.length should be(1)
     results(0).value should equal(label)
   }
-  
+
   it should "condition on multiple expressions" in {
     val label1 = exprParser.parse("(lambda ($0) (and:<t*,t> (city:<e,t> $0) (major:<e,t> $0)))")
     val label2 = exprParser.parse("(lambda ($0) (state:<e,t> $0))")
     val labels = Set(label1, label2)
     val entityLinking = EntityLinking(List())
     val oracle = parser.getMultiLabelScore(labels, entityLinking, typeDeclaration).get
-    
+
     val exprs = parser.generateExpression(Array("major", "city").map(vocab.getIndex(_)),
         entityLinking)
 

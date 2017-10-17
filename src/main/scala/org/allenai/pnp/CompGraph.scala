@@ -1,26 +1,24 @@
 package org.allenai.pnp
 
-import com.jayantkrish.jklol.util.IndexedList
-
 import edu.cmu.dynet._
 
 /** Computation graph of a neural network.
   */
-class CompGraph(val model: Model,
-    val paramNames: Map[String, Parameter], val lookupParamNames: Map[String, LookupParameter], 
-    val locallyNormalized: Boolean) {
+class CompGraph(val pnpModel: PnpModel) {
 
   def getParameter(name: String): Parameter = {
-    paramNames(name)
+    pnpModel.getParameter(name)
+  }
+
+  def getParameterExpr(name: String): Expression = {
+    Expression.parameter(getParameter(name))
   }
 
   def getLookupParameter(name: String): LookupParameter = {
-    lookupParamNames(name)
+    pnpModel.getLookupParameter(name)
   }
-}
 
-object CompGraph {
-  def empty(model: Model): CompGraph = {
-    new CompGraph(model, Map(), Map(), false)
+  def getLstmBuilder(name: String): LstmBuilder = {
+    pnpModel.getLstmBuilder(name)
   }
 }

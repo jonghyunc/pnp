@@ -22,8 +22,8 @@ case class MatchingExample(source: Diagram, sourceLabel: DiagramLabel,
   
 }
 
-case class MatchingLabel(targetToSourcePartMap: Map[Int, Int]) {
-  def getSourcePartInd(targetPartInd: Int): Int = {
+case class MatchingLabel(targetToSourcePartMap: Map[Int, Option[Int]]) {
+  def getSourcePartInd(targetPartInd: Int): Option[Int] = {
     targetToSourcePartMap(targetPartInd)
   }
 }
@@ -53,17 +53,16 @@ object MatchingExample {
    */
   def fromDiagrams(source: Diagram, sourceLabel: DiagramLabel,
       target: Diagram, targetLabel: DiagramLabel): MatchingExample = {
-    
-    val partMap = for {
-      sourcePart <- source.parts
-    } yield {
-      val sourcePartLabel = sourceLabel.partLabels(sourcePart.ind)
-      val targetInd = targetLabel.partLabels.indexOf(sourcePartLabel) 
 
-      Preconditions.checkState(targetInd != -1, "Could not find part label %s in list %s",
-          sourcePartLabel, targetLabel.partLabels)
+    val partMap = target.parts.map { targetPart =>
+      val targetPartLabel = targetLabel.partLabels(targetPart.ind)
+      val sourceInd = sourceLabel.partLabels.indexOf(targetPartLabel)
 
-      (targetInd, sourcePart.ind)
+      if (sourceInd >= 0) {
+        (targetPart.ind, Some(sourceInd))
+      } else {
+        (targetPart.ind, None)
+      }
     }
 
     val label = MatchingLabel(partMap.toMap)

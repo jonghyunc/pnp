@@ -10,7 +10,7 @@ import edu.cmu.dynet._
 import scala.util.Random
 
 class LoglikelihoodTrainer(val epochs: Int, val beamSize: Int, val sumMultipleExecutions: Boolean,
-    val model: PnpModel, val trainer: Trainer, val log: LogFunction) {
+    val model: PnpModel, val trainer: Trainer, val log: LogFunction, val immediateCompute: Boolean = false) {
 
   Preconditions.checkArgument(model.locallyNormalized == true)
 
@@ -20,55 +20,61 @@ class LoglikelihoodTrainer(val epochs: Int, val beamSize: Int, val sumMultipleEx
       var searchErrors = 0
       log.notifyIterationStart(i)
 
+      log.startTimer("loglikelihood_trainer")
       for (example <- Random.shuffle(examples)) {
         ComputationGraph.renew()
 
         val env = example.env
-        val context = PnpInferenceContext.init(model).setLog(log)
 
         // Compute the distribution over correct executions.
-        log.startTimer("pp_loglikelihood/forward")
-        val conditional = example.conditional.beamSearch(beamSize, -1,
-          env, context.addExecutionScore(example.conditionalExecutionScore))
-        log.stopTimer("pp_loglikelihood/forward")
-        
-        log.startTimer("pp_loglikelihood/build_loss")
-        val exLosses = conditional.executions.map(_.env.getScore(true))
-        
-        val lossExpr = if (exLosses.length == 0) {
+        log.startTimer("loglikelihood_trainer/beam")
+        val context = PnpInferenceContext.init(model).setLog(log)
+            .addExecutionScore(example.conditionalExecutionScore)
+            .addAuxiliaryLoss(example.auxiliaryLoss)
+        val conditional = example.conditional.beamSearch(beamSize, -1, env, context)
+        log.stopTimer("loglikelihood_trainer/beam")
+
+        log.startTimer("loglikelihood_trainer/build_loss")
+        val logProbs = conditional.executions.map(_.env.getScore)
+        val auxiliaryLosses = conditional.executions.map(_.env.getAuxiliaryLoss)
+
+        val (logProbExpr, auxiliaryLossExpr) = if (logProbs.length == 0) {
           Preconditions.checkState(sumMultipleExecutions,
               "Found %s conditional executions (expected exactly 1) for example: %s",
               conditional.executions.size.asInstanceOf[AnyRef], example)
 
-          null
-        } else if (exLosses.length == 1) {
-          exLosses(0)
+          (null, null)
+        } else if (logProbs.length == 1) {
+          (logProbs(0), auxiliaryLosses(0))
         } else {
           // This flag is used to ensure that training with a
-          // single label per example doesn't work "by accident" 
+          // single label per example doesn't work "by accident"
           // with an execution score that permits multiple labels.
           Preconditions.checkState(sumMultipleExecutions,
               "Found %s conditional executions (expected exactly 1) for example: %s",
               conditional.executions.size.asInstanceOf[AnyRef], example)
 
-          Expression.logSumExp(new ExpressionVector(exLosses))
+          (Expression.logSumExp(new ExpressionVector(logProbs)),
+              Expression.average(auxiliaryLosses: _*))
         }
-        log.stopTimer("pp_loglikelihood/build_loss")
-        
-        if (lossExpr != null) {
-          log.startTimer("pp_loglikelihood/eval_loss")
+        log.stopTimer("loglikelihood_trainer/build_loss")
+
+        if (logProbExpr != null) {
+          val lossExpr = (-1.0f * logProbExpr) + auxiliaryLossExpr
+          log.startTimer("loglikelihood_trainer/eval_loss")
           loss += ComputationGraph.incrementalForward(lossExpr).toFloat
-          log.stopTimer("pp_loglikelihood/eval_loss")
+          log.stopTimer("loglikelihood_trainer/eval_loss")
 
           // cg.print_graphviz()
-          log.startTimer("pp_loglikelihood/backward")
+          log.startTimer("loglikelihood_trainer/backward")
           ComputationGraph.backward(lossExpr)
           trainer.update(1.0f)
-          log.stopTimer("pp_loglikelihood/backward")
+          log.stopTimer("loglikelihood_trainer/backward")
         } else {
           searchErrors += 1
         }
       }
+      log.stopTimer("loglikelihood_trainer")
 
       trainer.updateEpoch()
 

@@ -32,6 +32,7 @@ class TrainMatchingCli extends AbstractCli {
   var modelOutputOpt: OptionSpec[String] = null
   
   var matchIndependentOpt: OptionSpec[Void] = null
+  var matchNoneOpt: OptionSpec[Void] = null
   var affineTransformOpt: OptionSpec[Void] = null
   var structuralFactorOpt: OptionSpec[Void] = null
   var matchingNetworkOpt: OptionSpec[Void] = null
@@ -56,6 +57,7 @@ class TrainMatchingCli extends AbstractCli {
     
     // Flags controlling the model variant
     matchIndependentOpt = parser.accepts("matchIndependent")
+    matchNoneOpt = parser.accepts("matchNone")
     affineTransformOpt = parser.accepts("affineTransform")
     structuralFactorOpt = parser.accepts("structuralFactor")
     matchingNetworkOpt = parser.accepts("matchingNetwork")
@@ -108,6 +110,7 @@ class TrainMatchingCli extends AbstractCli {
     config.matchingFeatureDim = matchingFeatureDim
     config.vggFeatureDim = vggFeatureDim
     config.matchIndependent = options.has(matchIndependentOpt)
+    config.matchNone = options.has(matchNoneOpt)
     config.affineTransformScore = options.has(affineTransformOpt)
     config.structuralConsistency = options.has(structuralFactorOpt)
     config.matchingNetwork = options.has(matchingNetworkOpt)
