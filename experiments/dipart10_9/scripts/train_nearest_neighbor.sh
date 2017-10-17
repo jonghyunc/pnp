@@ -9,8 +9,8 @@ MY_FLAGS="--nearestNeighbor --matchIndependent"
 
 mkdir -p $MY_DIR
 
-# echo "Training $MY_NAME model..."
-# ./$SCRIPT_DIR/run.sh org.allenai.dqa.matching.TrainMatchingCli --beamSize 1 --epochs 0 --examples $TRAIN --diagrams $DIAGRAMS --diagramFeatures $DIAGRAM_FEATURES --modelOut $MY_MODEL $MY_FLAGS > $MY_DIR/log.txt
+echo "Training $MY_NAME model..."
+./$SCRIPT_DIR/run.sh org.allenai.dqa.matching.TrainMatchingCli --beamSize 1 --epochs 0 --examples $TRAIN --diagrams $DIAGRAMS --diagramFeatures $DIAGRAM_FEATURES --modelOut $MY_MODEL $MY_FLAGS > $MY_DIR/log.txt
 
 echo "Testing $MY_NAME model on validation..."
 VAL="$DATA_DIR/data_splits/$DATA_SPLIT/validation.json"
