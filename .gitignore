@@ -26,3 +26,7 @@ docs/.ipynb_checkpoints
 
 # output files
 output
+
+# system related
+.DS_Store
+._.DS_Store
