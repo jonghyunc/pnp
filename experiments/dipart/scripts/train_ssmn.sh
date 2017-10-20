@@ -9,8 +9,8 @@ MY_FLAGS="--structuralFactor --partClassifier --relativeAppearance --lstmEncode"
 
 mkdir -p $MY_DIR
 
-# echo "Training $MY_NAME model..."
-# ./$SCRIPT_DIR/run.sh org.allenai.dqa.matching.TrainMatchingCli --beamSize $TRAIN_BEAM --epochs $EPOCHS --examples $TRAIN --diagrams $DIAGRAMS --diagramFeatures $DIAGRAM_FEATURES --modelOut $MY_MODEL $TRAIN_OPTS $MY_FLAGS > $MY_DIR/log.txt
+echo "Training $MY_NAME model..."
+./$SCRIPT_DIR/run.sh org.allenai.dqa.matching.TrainMatchingCli --beamSize $TRAIN_BEAM --epochs $EPOCHS --examples $TRAIN --diagrams $DIAGRAMS --diagramFeatures $DIAGRAM_FEATURES --modelOut $MY_MODEL $TRAIN_OPTS $MY_FLAGS > $MY_DIR/log.txt
 
 echo "Testing $MY_NAME model on validation..."
 VAL="$DATA_DIR/data_splits/$DATA_SPLIT/validation.json"
