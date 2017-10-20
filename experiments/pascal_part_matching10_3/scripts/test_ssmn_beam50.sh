@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-source "experiments/dipart10_9/scripts/config.sh"
+source "experiments/pascal_part_matching10_3/scripts/config.sh"
 
 MY_NAME=ssmn_bugfixed
 MY_DIR=$EXPERIMENT_DIR/$MY_NAME/
