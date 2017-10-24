@@ -157,7 +157,8 @@ class MatchingModel(var config: MatchingModelConfig,
   private def encodeFeatures(parts: Vector[Part], features: Array[PointExpressions],
       computationGraph: CompGraph): Array[Expression] = {
 
-    val shuffled = Random.shuffle(parts.zip(features))
+//    val shuffled = Random.shuffle(parts.zip(features))
+    val shuffled = parts.zip(features)
     
     if (config.lstmEncode || config.contextualLstm) {
       forwardBuilder.startNewSequence()
@@ -179,7 +180,9 @@ class MatchingModel(var config: MatchingModelConfig,
       val forwardSorted = forwardEmbeddings.sortBy(x => x._1.ind)
       val backwardSorted = backwardEmbeddings.sortBy(x => x._1.ind)
 
-      val concatenated = forwardSorted.zip(backwardSorted).map(x =>
+//      val concatenated = forwardSorted.zip(backwardSorted).map(x =>
+//        concatenate(new ExpressionVector(List(x._1._2, x._2._2))))
+      val concatenated = forwardEmbeddings.zip(backwardEmbeddings).map(x =>
         concatenate(new ExpressionVector(List(x._1._2, x._2._2))))
 
       concatenated.toArray
