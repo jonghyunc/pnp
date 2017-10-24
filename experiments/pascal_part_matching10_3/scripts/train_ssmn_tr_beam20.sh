@@ -1,11 +1,13 @@
 #!/bin/bash -e
 
-source "experiments/dipart10_9/scripts/config.sh"
+source "experiments/pascal_part_matching10_3/scripts/config.sh"
 
-MY_NAME=ssmn_wo_globalconsistency
+MY_NAME=ssmn_bugfixed_tr_beam20
 MY_DIR=$EXPERIMENT_DIR/$MY_NAME/
 MY_MODEL=$MY_DIR/model.ser
-MY_FLAGS="--partClassifier --lstmEncode"
+MY_FLAGS="--structuralFactor --partClassifier --relativeAppearance --lstmEncode"
+
+TRAIN_BEAM=20
 
 mkdir -p $MY_DIR
 
