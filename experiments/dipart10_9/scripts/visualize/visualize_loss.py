@@ -9,7 +9,9 @@ import random
 loss_json_file = sys.argv[1]
 output_dir = sys.argv[2]
 
-image_dir ="file:///Users/jayantk/github/pnp/data/dqa_parts_v1/"
+# image_dir ="file:///Users/jayantk/github/pnp/data/dqa_parts_v1/"
+# image_dir = '/Users/jonghyunc/playground/vision-matching2/dipart10_working/images'
+image_dir = '/Users/jonghyunc/datasets/DiPART_10'
 
 html_header = '''
 <html>
