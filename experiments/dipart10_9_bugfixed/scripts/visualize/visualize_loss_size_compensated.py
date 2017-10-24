@@ -58,16 +58,16 @@ def print_loss_html(j, outfile):
     print >> outfile, '<div style="position: relative">'
     for part in j["sourceParts"]:
         label = source_labels[part["ind"]]
-        x = IMG_WIDTH * part["coords"]["x"] / j["sourceDims"]["x"]
-        y = IMG_WIDTH * part["coords"]["y"] / j["sourceDims"]["y"]
+        x = IMG_WIDTH * part["coords"]["x"] / size_by_fn[j['sourceImgId']][1]
+        y = IMG_WIDTH * part["coords"]["y"] / size_by_fn[j['sourceImgId']][0]
         print >> outfile, '<p class="partid" style="background-color: lightgray; left: %s; top: %s">%s</p>' % (x, y, label)
         # Print source labels on target image
         # print >> outfile, '<p class="partid" style="background-color: lightgreen; left: %s; top: %s">%s</p>' % (x + IMG_WIDTH, y, label)
 
     target_labels = j["sourceLabel"]["partLabels"]
     for part in j["targetParts"]:
-        x = IMG_WIDTH * part["coords"]["x"] / j["targetDims"]["x"]
-        y = IMG_WIDTH * part["coords"]["y"] / j["targetDims"]["y"]
+        x = IMG_WIDTH * part["coords"]["x"] / size_by_fn[j['targetImgId']][1]
+        y = IMG_WIDTH * part["coords"]["y"] / size_by_fn[j['targetImgId']][0]
         target_ind = part["ind"]
         target_label = target_labels[target_ind]
         source_ind = target_to_source[target_ind]
@@ -139,6 +139,9 @@ def generate_label_html(label, losses, html_output_file):
             print_loss_html(j, f)
         print >> f, html_footer  
 
+size_by_fn = {}
+with open('image_size_dipart10_org.json', 'r') as jsondata:
+     size_by_fn = json.load(jsondata)
 
 losses_by_label = {}
 with open(loss_json_file, 'r') as g:
