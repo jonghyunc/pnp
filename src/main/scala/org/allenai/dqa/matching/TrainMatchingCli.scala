@@ -93,7 +93,7 @@ class TrainMatchingCli extends AbstractCli {
     println("matching feature dim: " + matchingFeatureDim)
     println("vgg feature dim: " + vggFeatureDim)
     println("vgg all feature dim: " + vggAllFeatureDim)
-    
+
     // Read in pairs of examples for training
     val matchingExamples = MatchingExample.fromJsonFile(options.valueOf(examplesOpt), diagramsMap)
     // Sample examples for training

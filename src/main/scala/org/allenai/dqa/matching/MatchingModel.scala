@@ -77,7 +77,7 @@ class MatchingModel(var config: MatchingModelConfig,
     
     val sourceLstmEmbeddings = encodeFeatures(source.parts, sourceFeatures, computationGraph)
     val targetLstmEmbeddings = encodeFeatures(target.parts, targetFeatures, computationGraph)
-    
+
     val sourceLstmEmbeddingsMatrix = concatenateCols(new ExpressionVector(sourceLstmEmbeddings.toList))
 
     val distanceWeights = parameter(computationGraph.getParameter(DISTANCE_WEIGHTS))
@@ -157,9 +157,8 @@ class MatchingModel(var config: MatchingModelConfig,
   private def encodeFeatures(parts: Vector[Part], features: Array[PointExpressions],
       computationGraph: CompGraph): Array[Expression] = {
 
-//    val shuffled = Random.shuffle(parts.zip(features))
-    val shuffled = parts.zip(features)
-    
+    val shuffled = Random.shuffle(parts.zip(features))
+
     if (config.lstmEncode || config.contextualLstm) {
       forwardBuilder.startNewSequence()
       val forwardEmbeddings = for {
@@ -177,13 +176,10 @@ class MatchingModel(var config: MatchingModelConfig,
         (part, embedding)
       }
 
-      val forwardSorted = forwardEmbeddings.sortBy(x => x._1.ind)
-      val backwardSorted = backwardEmbeddings.sortBy(x => x._1.ind)
+      val forwardMap = forwardEmbeddings.toMap
+      val backwardMap = backwardEmbeddings.toMap
 
-//      val concatenated = forwardSorted.zip(backwardSorted).map(x =>
-//        concatenate(new ExpressionVector(List(x._1._2, x._2._2))))
-      val concatenated = forwardEmbeddings.zip(backwardEmbeddings).map(x =>
-        concatenate(new ExpressionVector(List(x._1._2, x._2._2))))
+      val concatenated = parts.map(part => concatenate(new ExpressionVector(List(forwardMap(part), backwardMap(part)))))
 
       concatenated.toArray
     } else {
