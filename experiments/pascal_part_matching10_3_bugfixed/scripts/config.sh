@@ -12,7 +12,7 @@ TRAIN_OPTS=""
 TRAIN="$DATA_DIR/data_splits/$DATA_SPLIT/train.json"
 TEST="$DATA_DIR/data_splits/$DATA_SPLIT/validation.json"
 
-OUT_DIR="experiments/pascal_part_matching10_3/output/"
+OUT_DIR="experiments/pascal_part_matching10_3_bugfixed/output/"
 EXPERIMENT_NAME="$DATA_SPLIT/3_bugfixed/pnp/"
 EXPERIMENT_DIR="$OUT_DIR/$EXPERIMENT_NAME/"
 
