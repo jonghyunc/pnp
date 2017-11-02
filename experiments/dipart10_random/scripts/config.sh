@@ -2,7 +2,7 @@
 
 SCRIPT_DIR="experiments/dipart10_random/scripts/"
 DATA_DIR="data/dipart10_random"
-DIAGRAMS="$DATA_DIR/diagrams.json"
+DIAGRAMS="$DATA_DIR/diagrams_w_random.json"
 DIAGRAM_FEATURES="$DATA_DIR/diagram_features_xy_w_random.json"
 DATA_SPLIT="unseen_category"
 TRAIN_BEAM="5"

@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-source "experiments/pascal_part_matching10_3/scripts/config.sh"
+source "experiments/pascal_part_matching10_3_bugfixed/scripts/config.sh"
 
 MY_NAME=nearest_neighbor
 MY_DIR=$EXPERIMENT_DIR/$MY_NAME/
