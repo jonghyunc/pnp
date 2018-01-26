@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-source "experiments/dipart10_9/scripts/config.sh"
+source "experiments/pascal_part_matching10_3_bugfixed/scripts/config.sh"
 
 MY_NAME=matching
 MY_DIR=$EXPERIMENT_DIR/$MY_NAME/
@@ -17,8 +17,8 @@ mkdir -p $MY_DIR
 mkdir -p $TEST_DIR
 
 
-#echo "Training $MY_NAME model..."
-#./$SCRIPT_DIR/run.sh org.allenai.dqa.matching.TrainMatchingCli --beamSize $TRAIN_BEAM --epochs $MY_EPOCHS --examples $TRAIN --diagrams $DIAGRAMS --diagramFeatures $DIAGRAM_FEATURES --modelOut $MY_MODEL $TRAIN_OPTS $MY_FLAGS > $MY_DIR/log.txt
+echo "Training $MY_NAME model..."
+./$SCRIPT_DIR/run.sh org.allenai.dqa.matching.TrainMatchingCli --beamSize $TRAIN_BEAM --epochs $MY_EPOCHS --examples $TRAIN --diagrams $DIAGRAMS --diagramFeatures $DIAGRAM_FEATURES --modelOut $MY_MODEL $TRAIN_OPTS $MY_FLAGS > $MY_DIR/log.txt
 
 
 echo "Testing $MY_NAME model on test..."

@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-source "experiments/dipart10_9/scripts/config.sh"
+source "experiments/pascal_part_matching10_3_bugfixed/scripts/config.sh"
 
 MY_NAME=matching
 MY_DIR=$EXPERIMENT_DIR/$MY_NAME/
